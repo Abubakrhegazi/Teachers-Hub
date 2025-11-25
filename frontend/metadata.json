@@ -1,0 +1,8 @@
+
+{
+  "name": "IGCSE Teacher's Hub",
+  "description": "An all-in-one platform for IGCSE teachers, students, and parents to manage coursework, track progress, and communicate effectively. Features include user management, progress reports, homework submissions, a course roadmap, and more.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}

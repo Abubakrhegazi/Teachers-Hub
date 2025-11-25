@@ -1,0 +1,218 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "windows", "debian-openssl-3.0.x"]
+}
+
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id               String               @id @default(cuid())
+  name             String
+  email            String               @unique
+  phone            String?
+  password         String
+  type             UserType
+  studentId        String?
+  lastLoginAt      DateTime?
+  loginCount       Int                  @default(0)
+  failedLoginAttempts Int               @default(0)
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  deletedAt        DateTime?
+  auditLogs        AuditLog[]           @relation("UserAuditLogs")
+  enrollments      Enrollment[]
+  homeworkComments Homework[]           @relation("TeacherComments")
+  homework         Homework[]           @relation("StudentHomework")
+  invitesSent      Invite[]             @relation("UserInvites")
+  passwordResets   PasswordResetToken[] @relation("UserPasswordResets")
+  reportsReceived  Report[]             @relation("StudentReports")
+  reportsAuthored  Report[]             @relation("TeacherReports")
+  teacherClasses   TeacherClass[]
+  student          User?                @relation("ParentOf", fields: [studentId], references: [id])
+  parents          User[]               @relation("ParentOf")
+  groups           GroupMembership[]
+}
+
+model Chapter {
+  id          String        @id @default(cuid())
+  title       String
+  description String
+  status      ChapterStatus @default(pending)
+  orderIndex  Int           @default(0)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  deletedAt   DateTime?
+}
+
+model Report {
+  id        String     @id @default(cuid())
+  studentId String
+  teacherId String
+  date      DateTime
+  type      ReportType
+  content   String
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  deletedAt DateTime?
+  student   User       @relation("StudentReports", fields: [studentId], references: [id])
+  teacher   User       @relation("TeacherReports", fields: [teacherId], references: [id])
+
+  @@index([studentId])
+  @@index([teacherId])
+  @@index([date])
+}
+
+model Homework {
+  id                String       @id @default(cuid())
+  studentId         String
+  chapter           String
+  content           String
+  submissionDate    DateTime
+  comment_teacherId String?
+  comment_type      CommentType?
+  comment_content   String?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  deletedAt         DateTime?
+  commentTeacher    User?        @relation("TeacherComments", fields: [comment_teacherId], references: [id])
+  student           User         @relation("StudentHomework", fields: [studentId], references: [id])
+
+  @@index([studentId])
+  @@index([submissionDate])
+}
+
+model Class {
+  id           String         @id @default(cuid())
+  name         String
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  enrollments  Enrollment[]
+  teacherLinks TeacherClass[]
+}
+
+model Enrollment {
+  id        String   @id @default(cuid())
+  classId   String
+  studentId String
+  createdAt DateTime @default(now())
+  klass     Class    @relation(fields: [classId], references: [id])
+  student   User     @relation(fields: [studentId], references: [id])
+
+  @@unique([classId, studentId])
+  @@index([studentId])
+  @@index([classId])
+}
+
+model TeacherClass {
+  id        String   @id @default(cuid())
+  classId   String
+  teacherId String
+  createdAt DateTime @default(now())
+  klass     Class    @relation(fields: [classId], references: [id])
+  teacher   User     @relation(fields: [teacherId], references: [id])
+
+  @@unique([classId, teacherId])
+  @@index([teacherId])
+}
+
+model Group {
+  id        String   @id @default(cuid())
+  name      String
+  color     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  members   GroupMembership[]
+}
+
+model GroupMembership {
+  id        String   @id @default(cuid())
+  groupId   String
+  userId    String
+  role      String   @default("Member")
+  createdAt DateTime @default(now())
+
+  group Group @relation(fields: [groupId], references: [id])
+  user  User  @relation(fields: [userId], references: [id])
+
+  @@unique([groupId, userId], name: "groupId_userId")
+  @@index([userId])
+  @@map("groups")
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  actorUserId String?
+  action      String
+  entity      String
+  entityId    String?
+  changes     Json?
+  createdAt   DateTime @default(now())
+  actor       User?    @relation("UserAuditLogs", fields: [actorUserId], references: [id])
+
+  @@index([entity, entityId])
+  @@index([actorUserId])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation("UserPasswordResets", fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Invite {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  role          UserType
+  inviterUserId String?
+  tokenHash     String    @unique
+  expiresAt     DateTime
+  acceptedAt    DateTime?
+  createdAt     DateTime  @default(now())
+  inviter       User?     @relation("UserInvites", fields: [inviterUserId], references: [id])
+}
+
+model verification {
+  id         String   @id @default(cuid())
+  email      String
+  otpHash    String
+  payload    Json?
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime @default(now())
+
+  @@index([email])
+}
+
+enum UserType {
+  Student
+  Teacher
+  Parent
+  Admin
+}
+
+enum ChapterStatus {
+  completed
+  in_progress
+  pending
+}
+
+enum ReportType {
+  text
+  voice
+}
+
+enum CommentType {
+  text
+  voice
+}
